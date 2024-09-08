@@ -8,12 +8,12 @@ import (
 )
 
 type RequestPayload struct {
-	Auth AuthPayload `json:"auth"`
-	Action string    `json:"action,omitempty"`
+	Auth   AuthPayload `json:"auth,omitempty"`
+	Action string      `json:"action"`
 }
 
 type AuthPayload struct {
-	Email string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -37,56 +37,55 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 
 	switch requestPayload.Action {
 	case "auth":
-		    app.authenticate(w, requestPayload.Auth)
+		app.authenticate(w, requestPayload.Auth)
 	default:
-		app.errorJSON(w, errors.New("Unknown action."), http.StatusBadRequest)
+		app.errorJSON(w, errors.New("unknown action"), http.StatusBadRequest)
 	}
 }
 
 func (app *Config) authenticate(w http.ResponseWriter, auth AuthPayload) {
 	jsonData, err := json.MarshalIndent(auth, "", "\t")
 	if err != nil {
-        app.errorJSON(w, err, http.StatusInternalServerError)
-        return
-    }
+		app.errorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
 
 	requst, err := http.NewRequest("POST", "http://authentication-service/authenticate", bytes.NewBuffer(jsonData))
 	if err != nil {
-        app.errorJSON(w, err, http.StatusInternalServerError)
-        return
-    }
+		app.errorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
 	requst.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	response, err := client.Do(requst)
 	if err != nil {
-        app.errorJSON(w, err, http.StatusInternalServerError)
-        return
-    }
+		app.errorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode == http.StatusUnauthorized {
-		app.errorJSON(w, errors.New("Invalid credentials."), http.StatusUnauthorized)
+		app.errorJSON(w, errors.New("invalid credentials"), http.StatusUnauthorized)
 		return
 	} else if response.StatusCode != http.StatusAccepted {
-		app.errorJSON(w, errors.New("Failed to authenticate."), http.StatusInternalServerError)
+		app.errorJSON(w, errors.New("failed to authenticate"), http.StatusInternalServerError)
 		return
 	}
 
 	var jsonFromService jsonResponse
 
 	err = json.NewDecoder(response.Body).Decode(&jsonFromService)
-	if err!= nil {
-        app.errorJSON(w, err, http.StatusInternalServerError)
-        return
-    }
+	if err != nil {
+		app.errorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
 
-	payload := jsonResponse {
+	payload := jsonResponse{
 		Error:   false,
-        Message: "Authenticated successfully.",
-        Data:    jsonFromService.Data,
+		Message: "Authenticated successfully.",
+		Data:    jsonFromService.Data,
 	}
 
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
-
